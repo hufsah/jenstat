@@ -1,0 +1,203 @@
+---
+title: "R Notebook, TMV vs HTT"
+output: html_notebook
+---
+
+# Steg 1: Lägg in data
+
+Spara uppmätt data i variabler:
+
+```{r}
+tmv4_v <- c(-1, -3, -5, 3, -9, 5, -1, -1, 10, -1, 4, 3, -1, 0)
+tmv3_v <- c(-2, -5, -5, 0, -10, 3, -1, 0, 13, 1, 0, 2, 0, 2)
+htt_v  <- c(3, 5, 4, 7, -2, 8, -6, 8, 8, 4, 12, 3, 5, 8)
+tmv4_h <- c(1, -5, 3, 3, -4, 8, 0, -1, 11, 0, 4, 3, -3, 5)
+tmv3_h <- c(2, -6, 0, 2, -3, 7, 0, -1, 12, 3, 2, 3, -2, 3)
+htt_h  <- c(4, 5, 4, 3, 5, 8, -6, 8, 13, 4, 8, 7, 9, 8)
+```
+
+Formattera datan i en *data frame*:
+
+```{r}
+d <- data.frame(
+  sida <- c(rep("Vänster", 14), rep("Höger", 14)),
+  HTT <- c(htt_v, htt_h),
+  TMV3 <- c(tmv3_v, tmv3_h),
+  TMV4 <- c(tmv4_v, tmv4_h)
+)
+```
+
+Denna data frame innehåller fyra olika listor:
+
+- `sida` bestämmer vilken av grupperna "Vänster" och "Höger" som en viss punkt tillhör. Den består av strängen `"Vänster"` upprepad 14 gånger, följt av `"Höger"` upprepad 14 gånger.
+- `HTT` består av alla HTT-värden från vänster sida (14 st), följt av alla HTT-värden från höger sida (14 st).
+- `TMV3` och `TMV4` följer motsvarande mönster som `HTT`.
+
+Note: vi kan komma åt datan inuti en data frame med dollartecken-operatorn: för att t.ex. komma åt enbart listan `HTT` så skriver vi
+
+```{r}
+d$HTT
+```
+
+Vi kan även testa
+
+```{r}
+d$sida
+```
+
+Här ser vi listan som består av just 14 st `"Vänster"` och 14 st `"Höger"`, men utöver detta så ser vi också texten "Levels: Höger Vänster"; här berättar R för oss att datan i `d` tillhör en av två "nivåer", kallade "Vänster" och "Höger".
+
+
+# Steg 2: Linjär regression
+
+För att anpassa en linjär modell använder vi funktionen `lm()`.
+Om vi vill se hur bra `tmv3_v` passar som en linjär funktion av `htt_v` så skapar vi en linjär modell genom `lm(tmv3_v ~ htt_v)`.
+Vi kan sen printa ut en sammanfattning av den linjära anpassningen via `summary()`:
+
+```{r}
+summary(lm(tmv3_v ~ htt_v))
+```
+
+Vi ser ett R2-värde på 0.2094 och ett p-värde på 0.09992.
+För resterande data har vi:
+
+**TMV3 mot HTT, höger**:
+
+```{r}
+summary(lm(tmv3_h ~ htt_h))
+```
+
+**TMV4 mot HTT, vänster**:
+
+```{r}
+summary(lm(tmv4_v ~ htt_v))
+```
+
+**TMV4 mot HTT, höger**:
+
+```{r}
+summary(lm(tmv4_h ~ htt_h))
+```
+
+# Steg 3: Figurer med ggplot
+
+Vi skapar punktdiagram med R-paketet `ggplot2`, som vi först måste importera:
+
+```{r}
+library(ggplot2)
+```
+
+Sedan skapar vi våra figurer:
+
+```{r}
+ggplot(d, aes(x=HTT, y=TMV3)) +
+  geom_point(aes(colour=sida, shape=sida), size=3) +
+  ggtitle("TMV3 mot HTT; R2=0.209 vänster, 0.176 höger") +
+  theme_bw() +
+  scale_shape_manual(values=c(8, 17)) +
+  scale_colour_manual(values=c("#5050a0", "#d05060"))
+```
+
+```{r}
+ggplot(d, aes(x=HTT, y=TMV4)) +
+  geom_point(aes(colour=sida, shape=sida), size=3) +
+  ggtitle("TMV4 mot HTT; R2=...") +
+  theme_bw() +
+  scale_shape_manual(values=c(8, 17)) +
+  scale_colour_manual(values=c("#5050a0", "#d05060"))
+```
+
+# Om man vill skriva mer cool kod
+
+Att manuellt behöva köra några rader kod, sen pausa och läsa R2-värdet, för att sedan manuellt skriva in R2-värdet i sin figurtitel är lite jobbigt (speciellt om man ska skapa många grafer).
+Men programmering är till för att automatisera saker.
+Vi kan t.ex. spara vår summary av den linjära anpassningen
+
+```{r}
+summary_tmv3_v <- summary(lm(tmv3_v ~ htt_v))
+summary_tmv3_h <- summary(lm(tmv3_h ~ htt_h))
+```
+
+och sedan komma åt R2-värdet som en variabel, med dollartecken-operatorn, via
+
+```{r}
+summary_tmv3_v$r.squared
+```
+
+Det ser ju rätt ut, så där har vi R2-värdet direkt i vår kod.
+Så vi sparar det i en variabel!
+
+```{r}
+R2_tmv3_v <- summary_tmv3_v$r.squared
+R2_tmv3_h <- summary_tmv3_h$r.squared
+```
+
+Nu kan vi använda funktionen `sprintf()` (som finns i många programmeringsspråk, inte bara i R) för att skapa vår titeltext.
+Det vi vill göra ser ut såhär:
+
+```{r}
+sprintf("TMV3 mot HTT; R2=%.3f vänster, R2=%.3f höger", R2_tmv3_v, R2_tmv3_h)
+```
+
+`sprintf` står typ för "string print formatted" eller något;
+den *formatterar* en textsträng, sen *printar* den in resultatet i en *sträng*.
+Det är en standardfunktion i de flesta språk.
+Det först argumentet är en *formatsträng*, som innehåller text och specialtecknet `%` som bestämmer en formattering av ett tal.
+Varje procenttecken i strängen matchas sen med de argument som sprintf får efteråt; det första procenttecknet matchas mot `R2_tmv3_v`, det andra mot `R2_tmv3_h`.
+De är lite skumma i början, men man lär sig efter man googlat 1000 gånger.
+Formatet `%.3f` innehåller två bitar information: `f` står för "floating point number", som är datorspråk för *decimaltal* (till skillnad från heltal).
+Detta betyder att variabeln `R2_tmv3_v` ska tolkas som ett decimaltal.
+Nästa del av formatet är `.3` som betyder att vi vill ha tre siffror efter decimaltecknet.
+
+För att ge mer exempel:
+heltal formatteras som `%d` (d som i digit), t.ex:
+
+```{r}
+sprintf("lite text, %d, lite mer text", 18)
+```
+
+```{r}
+sprintf("En följd av heltal: %d, %d, %d och %d.", 1, -2, 3, 0)
+```
+
+
+```{r}
+sprintf("Ett heltal: %d. Ett decimaltal med hur många siffror det vill: %f. Samma tal med 2 decimaler: %.2f", 255, R2_tmv3_h, R2_tmv3_h)
+```
+
+Coolt.
+Men tillbaka till vår titel.
+Jag tänker välja att spara den i en variabel:
+
+```{r}
+titel_tmv3 <- sprintf("TMV3 mot HTT; R2=%.3f vänster, R2=%.3f höger", R2_tmv3_v, R2_tmv3_h)
+```
+
+Sen kan man bara använda den när vi använder `ggplot()`!
+Så istället för att ha `+ ggtitle("TMV3 mot HTT; R2=0.209 vänster, 0.176 höger")` så räcker det med `+ ggtitle(titel_tmv3)`.
+Om vi slår ihop allt det här så får vi detta skript:
+
+```{r}
+summary_tmv3_v <- summary(lm(tmv3_v ~ htt_v))
+summary_tmv3_h <- summary(lm(tmv3_h ~ htt_h))
+
+R2_tmv3_v <- summary_tmv3_v$r.squared
+R2_tmv3_h <- summary_tmv3_h$r.squared
+
+titel_tmv3 <- sprintf("TMV3 mot HTT; R2=%.3f vänster, R2=%.3f höger", R2_tmv3_v, R2_tmv3_h)
+
+ggplot(d, aes(x=HTT, y=TMV3)) +
+  geom_point(aes(colour=sida, shape=sida), size=3) +
+  ggtitle(titel_tmv3) +
+  theme_bw() +
+  scale_shape_manual(values=c(8, 17)) +
+  scale_colour_manual(values=c("#5050a0", "#d05060"))
+```
+
+Gött, vi fick exakt samma figur som innan, titel och allt.
+MEN nu har vi genererat själva titeln helt automatiskt, med kod!
+Det var inte alls värt jobbet bara för en eller två figurer, men tänk om vi skulle skapa 10 likadana figurer?
+Med den här koden så räcker det att ändra på listorna `htt_v`, `tmv3_v`, etc längst upp, och sen kommer figurerna skapas helt automatiskt.
+Det är lite kul typ.
+Då kan man bara öppna skriptet och köra en Ctrl+Alt+R (eller Code -> Run Region -> Run All) för att köra hela skriptet i ett svep.
+
